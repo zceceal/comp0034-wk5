@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+Flask-Marshmallow
+bcrypt
+pandas
+pytest
+selenium
