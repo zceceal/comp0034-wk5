@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-import pandas as pd
+import csv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -58,7 +58,7 @@ def create_app(test_config=None):
     # create_all does not update tables if they are already in the database.
     with app.app_context():
         db.create_all()
-        add_data()
+        add_data_from_csv()
 
         # Register the routes with the app in the context
         from paralympics import routes
@@ -66,18 +66,53 @@ def create_app(test_config=None):
     return app
 
 
-def add_data():
+def add_data_from_csv():
     """Adds data to the database if it does not already exist."""
-    # Read the Region and Event data from csv into pandas DataFrames
-    na_values = ["", ]
-    noc_file = Path(__file__).parent.parent.joinpath("data", "noc_regions.csv")
-    noc_regions = pd.read_csv(noc_file, keep_default_na=False, na_values=na_values)
-    event_file = Path(__file__).parent.parent.joinpath("data", "paralympic_events.csv")
-    paralympics = pd.read_csv(event_file)
 
-    # Write the data from the pandas DataFrames to the database tables
-    noc_regions.to_sql("region", con=db.engine, if_exists="replace", index=False)
-    paralympics.to_sql("event", con=db.engine, if_exists="replace", index=False)
+    # Add import here and not at the top of the file to avoid circular import issues
+    from paralympics.models import Region, Event
 
-    # Commit the changes
-    db.session.commit()
+    # If there are no regions in the database, then add them
+    first_region = db.session.execute(db.select(Region)).first()
+    if not first_region:
+        print("Start adding region data to the database")
+        noc_file = Path(__file__).parent.parent.joinpath("data", "noc_regions.csv")
+        with open(noc_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            next(csv_reader)  # Skip header row
+            for row in csv_reader:
+                # row[0] is the first column, row[1] is the second column
+                r = Region(NOC=row[0], region=row[1], notes=row[2])
+                db.session.add(r)
+            db.session.commit()
+
+    # If there are no Events, then add them
+    first_event = db.session.execute(db.select(Event)).first()
+    if not first_event:
+        print("Start adding event data to the database")
+        event_file = Path(__file__).parent.parent.joinpath("data", "paralympic_events.csv")
+        with open(event_file, 'r') as file:
+            csv_reader = csv.reader(file)
+            next(csv_reader)  # Skip header row
+            for row in csv_reader:
+                # row[0] is the first column, row[1] is the second column etc
+                # type0,year1,country2,host3,NOC4,start5,end6,duration7,disabilities_included8,countries9,events10,
+                # sports11,participants_m12,participants_f13,participants14,highlights15
+                e = Event(type=row[0],
+                          year=row[1],
+                          country=row[2],
+                          host=row[3],
+                          NOC=row[4],
+                          start=row[5],
+                          end=row[6],
+                          duration=row[7],
+                          disabilities_included=row[8],
+                          countries=row[9],
+                          events=row[10],
+                          sports=row[11],
+                          participants_m=row[12],
+                          participants_f=row[13],
+                          participants=row[14],
+                          highlights=row[15])
+                db.session.add(e)
+            db.session.commit()

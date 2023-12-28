@@ -36,7 +36,6 @@ class Event(db.Model):
     disabilities_included: Mapped[str] = mapped_column(db.Text, nullable=True)
     countries: Mapped[str] = mapped_column(db.Text, nullable=True)
     events: Mapped[int] = mapped_column(db.Integer, nullable=True)
-    athletes: Mapped[int] = mapped_column(db.Integer, nullable=True)
     sports: Mapped[int] = mapped_column(db.Integer, nullable=True)
     participants_m: Mapped[int] = mapped_column(db.Integer, nullable=True)
     participants_f: Mapped[int] = mapped_column(db.Integer, nullable=True)
