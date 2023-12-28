@@ -1,4 +1,7 @@
 import os
+from pathlib import Path
+
+import pandas as pd
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -21,8 +24,6 @@ ma = Marshmallow()
 
 def create_app(test_config=None):
     # create and configure the app
-    # https://flask.palletsprojects.com/en/2.3.x/api/#application-object
-    # app = Flask(__name__, instance_relative_config=True)
     app = Flask('paralympics', instance_relative_config=True)
     app.config.from_mapping(
         # Generate your own SECRET_KEY using python secrets
@@ -57,8 +58,26 @@ def create_app(test_config=None):
     # create_all does not update tables if they are already in the database.
     with app.app_context():
         db.create_all()
+        add_data()
 
         # Register the routes with the app in the context
         from paralympics import routes
 
     return app
+
+
+def add_data():
+    """Adds data to the database if it does not already exist."""
+    # Read the Region and Event data from csv into pandas DataFrames
+    na_values = ["", ]
+    noc_file = Path(__file__).parent.parent.joinpath("data", "noc_regions.csv")
+    noc_regions = pd.read_csv(noc_file, keep_default_na=False, na_values=na_values)
+    event_file = Path(__file__).parent.parent.joinpath("data", "paralympic_events.csv")
+    paralympics = pd.read_csv(event_file)
+
+    # Write the data from the pandas DataFrames to the database tables
+    noc_regions.to_sql("region", con=db.engine, if_exists="replace", index=False)
+    paralympics.to_sql("event", con=db.engine, if_exists="replace", index=False)
+
+    # Commit the changes
+    db.session.commit()

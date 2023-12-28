@@ -20,9 +20,11 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 # Optional, these configure Pytest behaviour
+# https://docs.pytest.org/en/stable/reference/customize.html#pyproject-toml
 [tool.pytest.ini_options]
 minversion = "2.7"
-addopts = "-rfEX -p pytester --strict-markers"
+# addopts = "-rfEX -p pytester --strict-markers -v"
+addopts = "--verbose"
 python_files = ["test_*.py", "*_test.py", "test/*.py"]
 python_classes = ["Test"]
 python_functions = ["test"]
