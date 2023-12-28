@@ -19,3 +19,4 @@ This assumes you have already forked the coursework repository and cloned the re
 
 - [Handling application errors in Flask](https://flask.palletsprojects.com/en/2.3.x/errorhandling/)
 - [Handling exceptions in Flask-SQLAlchemy](https://www.youtube.com/watch?v=P-Z1wXFW4Is )
+- [Adding token-based authentication using Flask-HTTPAuth](https://blog.miguelgrinberg.com/post/restful-authentication-with-flask)
