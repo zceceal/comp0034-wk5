@@ -36,3 +36,8 @@ filterwarnings = [
     # pytest's own futurewarnings
     "ignore::pytest.PytestExperimentalApiWarning",
 ]
+
+# https://flask.palletsprojects.com/en/2.3.x/tutorial/tests/#running-the-tests
+[tool.coverage.run]
+branch = true
+source = ["paralympics"]
