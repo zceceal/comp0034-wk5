@@ -33,13 +33,236 @@ In this activity you will:
 
 - learn how to configure Flask to handle errors
 - add error handling to the database requests
+- use the logger to track events while the server is being used (useful for debugging)
 
-### Configure Flask to handle JSON errors
+### Configure Flask to handle errors and respond in JSON format
 
 The Flask documentation
 for [handling application errors in Flask](https://flask.palletsprojects.com/en/2.3.x/errorhandling/) explains how to
 add custom errors. Much of this relates to returning HTML error pages which is not what we want in a REST API. We
 instead want to return JSON format messages in our REST API.
+
+The Flask documentation gives examples for the following:
+
+- Handle non-HTTP exceptions as 500 Server error in JSON format
+- Return JSON instead of HTML for HTTP errors.
+- Handle a specific HTTP error (404 in this case) with custom message for the app when Flask.abort() is called.
+
+There are two approaches for how to define these in Flask:
+
+1. Define the functions and use the `app.errorhandler()` decorator. You could then add them to `routes.py`.
+2. Define the functions and in the Factory function, `create_app()`, register the error handlers.
+
+Approach 1:
+
+You can add the following the `routes.py`.
+
+In the week 5 completed example they are in `error_handlers.py` instead to keep the routes code shorter. To
+ensure the app can find them, I updated `create_app()` to import them in the app.context() where the routes are
+imported.
+
+```python
+from flask import json, current_app as app, jsonify
+from werkzeug.exceptions import HTTPException
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    """Handle non-HTTP exceptions as 500 Server error in JSON format."""
+
+    # pass through HTTP errors
+    if isinstance(e, HTTPException):
+        return e
+
+    # now you're handling non-HTTP exceptions only
+    response = e.get_response()
+    # replace the body with JSON
+    response.data = json.dumps({
+        "code": 500,
+        "name": e.name,
+        "description": e.description,
+    })
+    response.content_type = "application/json"
+    return response
+
+
+@app.errorhandler(HTTPException)
+def handle_exception(e):
+    """Return JSON instead of HTML for HTTP errors."""
+    # start with the correct headers and status code from the error
+    response = e.get_response()
+    # replace the body with JSON
+    response.data = json.dumps({
+        "code": e.code,
+        "name": e.name,
+        "description": e.description,
+    })
+    response.content_type = "application/json"
+    return response
+
+
+@app.errorhandler(404)
+def resource_not_found(e):
+    """Handle a specific HTTP error (404 in this case) with custom message for the app when Flask.abort() is called.
+    """
+    return jsonify(error=str(e)), 404
+```
+
+Approach 2: Define the functions and register in the create_app
+
+The Flask documentation includes this in
+the [Further Examples section](https://flask.palletsprojects.com/en/2.3.x/errorhandling/#further-examples).
+
+Define the error handler and then register it in the create_app function.
+
+There is an example of this in the week 5 completed code in the `paralympics\__init__.py` file:
+
+```python
+def handle_404_error(e):
+    """ Error handler for 404.
+
+        Used when abort() is called. THe custom message is provided by the 'description=' parameter in abort().
+        Args:
+            HTTP 404 error
+
+        Returns:
+            JSON response with the validation error message and the 404 status code
+        """
+    return jsonify(error=str(e)), 404
+
+
+def create_app(test_config=None):
+    app = Flask('paralympics', instance_relative_config=True)
+
+    # ... code removed here for brevity ...
+
+    # Register the custom 404 error handler that is defined in this python file
+    app.register_error_handler(401, handle_404_error)
+
+```
+
+## Handle Marshamallow and SQLAlchemy errors
+
+You could also specifically handle Marshmallow and SQLAlchemy errors, otherwise these will be handled by the generic '
+Exception' handler.
+
+## Use logging to track events in a running Flask app
+
+You can use logging to track events that happen when the server is running and the application is being used. This
+can make troubleshooting errors easier as helps you see what is going on in your application.
+
+With logging, you can use different functions to report information on different logging levels. Each level indicates an
+event happened with a certain degree of severity. The following functions can be used:
+
+- app.logger.debug(): For detailed information about the event.
+- app.logger.info(): Confirmation that things are working as expected.
+- app.logger.warning(): Indication that something unexpected happened (such as “disk space low”), but the application is
+  working as expected.
+- app.logger.error(): An error occurred in some part of the application.
+- app.logger.critical(): A critical error; the entire application might stop working.
+
+You can add these to your code. For example, the app logger is used in the exception handling of the try/except
+in the route below:
+
+```python
+@app.get('/regions/<code>')
+def get_region(code):
+    try:
+        region = db.session.execute(db.select(Region).filter_by(NOC=code)).scalar_one()
+        result = region_schema.dump(region)
+        return result
+    except exc.NoResultFound as e:
+        app.logger.error(f'Region code {code} was not found. Error: {e}')
+        abort(404, description="Region not found")
+```
+
+Then run the app: `flask --app paralympics run --debug`
+
+Go to http://127.0.0.1:5000/region/ZZA
+
+View the log result in the terminal:
+
+```text
+[2023-12-31 15:35:56,789] ERROR in routes: Region code ZZA was not found. Error: No row was found when one was required
+127.0.0.1 - - [31/Dec/2023 15:35:56] "GET /regions/ZZA HTTP/1.1" 404 -
+```
+
+Consider logging events such as info in the startup in `create_app()`:
+
+```python
+def create_app():
+    app = Flask(__name__)
+    # app config omitted here
+    app.logger.setLevel("INFO")
+
+    db.init_app(app)
+
+    app.logger.debug(f"Current Environment: {os.getenv('ENVIRONMENT')}")
+    app.logger.debug(f"Using Database: {app.config.get('DATABASE')}")
+    return app
+```
+
+Or actions taken by users, e.g. when they log in in the /login route:
+
+```python
+ if user.check_password(auth.get('password')):
+    # Log when the user logged in
+    app.logger.info(f"{user.email} logged in at {datetime.utcnow()}")
+```
+
+It is likely more useful to output the errors to a file.
+
+To do this, you need to configure Logging before the app starts.
+
+Add the following function in `paralympics\__init__.py`:
+
+```text
+def configure_logging(app):
+    """ Configures Flask loggong to a file.
+
+    Logging level is set to DEBUG when testing which generates more detail.
+    """
+    logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
+
+    if app.config['TESTING']:
+        logging.getLogger().setLevel(logging.DEBUG)
+        handler = logging.FileHandler('paralympics_tests.log')  # Log to a file
+        app.logger.addHandler(handler)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+        handler = logging.FileHandler('paralympics.log')  # Log to a file
+        app.logger.addHandler(handler)
+```
+
+Then create the logger in the `create_app` e.g.
+
+```python
+def create_app(test_config=None):
+    app = Flask('paralympics', instance_relative_config=True)
+    app.config.from_mapping(
+        SECRET_KEY='l-tirPCf1S44mWAGoWqWlA',
+        SQLALCHEMY_DATABASE_URI="sqlite:///" + os.path.join(app.instance_path, 'paralympics.sqlite'),
+    )
+    if test_config is None:
+        app.config.from_pyfile('config.py', silent=True)
+    else:
+        app.config.from_mapping(test_config)
+    try:
+        os.makedirs(app.instance_path)
+    except OSError:
+        pass
+
+    # Configure logging 
+    configure_logging(app)
+
+    # Log events to the logger
+    app.logger.debug(f"Using Database: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
+
+    # ... code omitted ...
+```
+
+Try running the tests, and then run the app and check for the two log files `paralympics.log`
+and `paralympics_test.log`.
 
 ## 3. Adding authentication and authorisation to a REST API
 
