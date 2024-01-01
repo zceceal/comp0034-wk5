@@ -352,6 +352,6 @@ See Reading List on Moodle also.
 
 - [Python 8.2 Exceptions](https://docs.python.org/3/tutorial/errors.html#exceptions)
 - [W3Schools Try Except](https://www.w3schools.com/python/python_try_except.asp)
-- [Handling application errors in Flask](https://flask.palletsprojects.com/en/2.3.x/errorhandling/)
+- [Handling application errors in Flask](https://flask.palletsprojects.com/en/3.0.x/errorhandling/)
 - [Handling exceptions in Flask-SQLAlchemy](https://www.youtube.com/watch?v=P-Z1wXFW4Is)
 - [Configure Logging for Flask SQLAlchemy Project](https://shzhangji.com/blog/2022/08/10/configure-logging-for-flask-sqlalchemy-project/)

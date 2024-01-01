@@ -258,14 +258,15 @@ Add `@token_required` to one or more routes. For example, users must be register
 to 'update' a Region.
 
 Partial code shown below so that you can see the additional import `from paralympics.utilities import token_required`
-that is required, and where to place the `@token_required` decorator.
+that is required, and where to place the `@token_required` decorator. Note that the order of the decorators matters,
+`@token_required` before the `@app.patch`.
 
 ```python
 from paralympics.utilities import token_required
 
 
-@app.patch("/regions/<noc_code>")
 @token_required
+@app.patch("/regions/<noc_code>")
 def region_update(noc_code):
 # Code removed
 ```
