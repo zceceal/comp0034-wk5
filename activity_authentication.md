@@ -38,15 +38,21 @@ In `models.py` update the existing user class to add functions to:
 1. Hash the text password
 2. Verify a text password against the stored hashed password
 
-There are various algorithms that can be used to create a hash such as `hashlib`, `bcrypt` and others. In this example
-we use functions from `werkzeug` which is a package installed with Flask by default. `werkzeug` provides numerous
-utilities for creating a Flask application that runs on a WSGI server. Werkzeug provides much of the underlying
+Rather than save the password as plain text you should hash it as a security measure.Hashing in Python is the process of
+converting an input
+into a fixed-length sequence of bytes, called a hash or message digest. The hash is generated using a mathematical
+function that maps the input data to a fixed-size array of bytes. Salting can aslo be used prior to
+hashing. Salting adds a random string of characters to the text password before it is hashed.
+
+There are various packages that can be used to create handle hashing and salting such as `hashlib`, `bcrypt`, `passlib`
+and others. In
+this example we use functions from `werkzeug` which is a package installed with Flask by default. `werkzeug` provides
+numerous utilities for creating a Flask application that runs on a WSGI server. Werkzeug provides much of the underlying
 functionality that supports HTTP request and response handling, exceptions, URL routing etc. `werkzeug` security package
 includes methods to generate and check a hash.
 
 Add the following code to the User class in `models.py`. Note that you need to change the `password` attribute to use
-the
-hashed password rather than the plain text.
+the hashed password rather than the plain text.
 
 For this app, authentication will require the user to provide an email address and password only.
 
@@ -68,6 +74,9 @@ class User(db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 ```
+
+Note: You could also create a Marshmallow UserSchema as you did for the other models and use it in the routes. I haven't 
+done so in the following example code.
 
 ## Create a decorator
 
