@@ -337,6 +337,17 @@ You could add a wider range of tests to these, e.g.
   to access the protected route.
 - Invalid email address format on register (you will need to update the User to validate the email address format)
 
+Before you can run the auth_tests you will need to add the `@token_required` to the PATCH route for regions:
+
+```python
+from paralympics.helper import token_required
+
+
+@app.patch("/regions/<noc_code>")
+@token_required
+def region_update(noc_code):
+```
+
 ## References
 
 Also refer to the Reading List.
