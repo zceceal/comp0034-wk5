@@ -340,7 +340,7 @@ You could add a wider range of tests to these, e.g.
 Before you can run the auth_tests you will need to add the `@token_required` to the PATCH route for regions:
 
 ```python
-from paralympics.helper import token_required
+from paralympics.helpers import token_required
 
 
 @app.patch("/regions/<noc_code>")
