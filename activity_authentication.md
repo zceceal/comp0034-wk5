@@ -75,8 +75,64 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
 ```
 
-Note: You could also create a Marshmallow UserSchema as you did for the other models and use it in the routes. I haven't 
+Note: You could also create a Marshmallow UserSchema as you did for the other models and use it in the routes. I haven't
 done so in the following example code.
+
+## Create functions to encode and decode a token
+
+You could add these to the User class as suggested in this tutorial; or add them to the `routes.py`. In the completed
+example in week5-complete I added them to a separate file called `helpers.py` to avoid adding non-route code to
+routes.py.
+
+```python
+import jwt
+from datetime import datetime, timedelta
+from flask import make_response, current_app as app
+
+
+def encode_auth_token(user_id):
+    """Generates the Auth Token.
+    
+    This is called in the login route when the user attempts to log in.
+
+    :param: string user_id  The user id of the user logging in
+    :return: token
+    """
+    try:
+        # See https://pyjwt.readthedocs.io/en/latest/api.html for the parameters
+        token = jwt.encode(
+            # Sets the token to expire in 5 mins
+            payload={
+                "exp": datetime.utcnow() + timedelta(minutes=5),
+                "iat": datetime.utcnow(),
+                "sub": user_id,
+            },
+            # Flask app secret key, matches the key used in the decode() in the decorator
+            key=app.config['SECRET_KEY'],
+            # Matches the algorithm in the decode() in the decorator
+            algorithm='HS256'
+        )
+        return token
+    except Exception as e:
+        return e
+
+
+def decode_auth_token(auth_token):
+    """
+    Decodes the auth token.
+    :param auth_token:
+    :return: token payload
+    """
+    # Use PyJWT.decode(token, key, algorithms) to decode the token with the public key for the app
+    # See https://pyjwt.readthedocs.io/en/latest/api.html
+    try:
+        payload = jwt.decode(auth_token, app.config.get("SECRET_KEY"), algorithms=["HS256"])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return make_response({'message': "Token expired. Please log in again."}, 401)
+    except jwt.InvalidTokenError:
+        return make_response({'message': "Invalid token. Please log in again."}, 401)
+```
 
 ## Create a decorator
 
@@ -99,16 +155,15 @@ The code below uses the Flask
 method [`make_response`](https://flask.palletsprojects.com/en/3.0.x/api/#flask.Flask.make_response) which can take a
 dict that will be `jsonify`'d before being returned.
 
-Add the following to a new file with a relevant name, e.g. `utilities.py`. You could add it to `routes.py` if you
-prefer, though the file is going to get long.:
+Add the following to a new file with a relevant name, e.g. `helpers.py`, or `routes.py` if you
+prefer:
 
 ```python
 from functools import wraps
-import jwt
 from flask import request, make_response
-from flask import current_app as app
 from paralympics import db
 from paralympics.models import User
+from paralympics.helpers import decode_auth_token
 
 
 def token_required(f):
@@ -120,31 +175,23 @@ def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
         token = None
-
         # See if there is an Authorization section in the HTTP request headers
-        if 'Authorization' in request.headers:
+        if "Authorization" in request.headers:
             token = request.headers.get("Authorization")
 
         # If not, then return a 401 error (missing or invalid authentication credentials)
         if not token:
             response = {"message": "Authentication Token missing"}
             return make_response(response, 401)
-        # Check the token is valid and find the user in the database using their email address
-        try:
-            # Use PyJWT.decode(token, key, algorithms) to decode the token with the public key for the app
-            # See https://pyjwt.readthedocs.io/en/latest/api.html
-            data = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
-            # Find the user in the database using their email address which is in the data of the decoded token
-            current_user = db.session.execute(
-                db.select(User).filter_by(email=data.get("email"))
-            ).scalar_one_or_none()
-        # If the email is not found, the token is likely invalid so return 401 error
-        except:
-            response = {"message": "Token invalid"}
+        # Check the token is valid using the decode_auth_token method you just created in the previous step
+        token_payload = decode_auth_token(token)
+        user_id = token_payload["sub"]
+        # Find the user in the database using their email address which is in the data of the decoded token
+        current_user = db.session.execute(db.select(User).filter_by(id=user_id)).scalar_one_or_none()
+        if not current_user:
+            response = {"message": "Invalid or missing token."}
             return make_response(response, 401)
-
-        # If successful, return the user information attached to the token
-        return f(current_user, *args, **kwargs)
+        return f(*args, **kwargs)
 
     return decorator
 ```
@@ -153,8 +200,8 @@ You have now created the decorator that can decode the token and handle errors i
 
 The next steps are to:
 
-- Create the token
-- Use the decorator to protect routes in the REST API
+- create the token when the user successfully logs in with
+- use the decorator to protect routes in the REST API
 
 ## Create the token in a login route
 
@@ -217,48 +264,34 @@ def register():
 @app.post('/login')
 def login():
     """Logins in the User and generates a token
-    
+
     If the email and password are not present in the HTTP request, return 401 error
-    If the user is not found in the database, return 401 error
-    If the password does not math the hashed password, return 403 error
-    If the token is not generated or any other error occurs, return 500 Server error
+    If the user is not found in the database, or the password is incorrect, return 401 error
     If the user is logged in and the token is generated, return the token and 201 Success
     """
     auth = request.get_json()
+
     # Check the email and password are present, if not return a 401 error
     if not auth or not auth.get('email') or not auth.get('password'):
         msg = {'message': 'Missing email or password'}
         return make_response(msg, 401)
+
     # Find the user in the database
     user = db.session.execute(
         db.select(User).filter_by(email=auth.get("email"))
     ).scalar_one_or_none()
-    # If the user is not found, return 401 error
-    if not user:
-        msg = {'message': 'No account for that email address. Please register.'}
+
+    # If the user is not found, or the password is incorrect, return 401 error
+    if not user or not user.check_password(auth.get('password')):
+        msg = {'message': 'Incorrect email or password.'}
         return make_response(msg, 401)
-    # Check if the password matches the hashed password using the check_password function you added to User in models.py
-    if user.check_password(auth.get('password')):
-        # The user is now verified so create the token
-        # See https://pyjwt.readthedocs.io/en/latest/api.html for the parameters
-        token = jwt.encode(
-            # Sets the token to expire in 5 mins
-            payload={
-                "exp": datetime.utcnow() + timedelta(minutes=5),
-                "iat": datetime.utcnow(),
-                "sub": user.id,
-            },
-            # Flask app secret key, matches the key used in the decode() in the decorator
-            key=app.config['SECRET_KEY'],
-            # The id field from the User in models
-            headers={'user_id': user.id},
-            # Matches the algorithm in the decode() in the decorator
-            algorithm='HS256'
-        )
-        return make_response(jsonify({'token': token}), 201)
-    # If the password does not math the hashed password, return 403 error
-    msg = {'message': 'Incorrect password.'}
-    return make_response(msg, 403)
+
+    # If all OK then create the token
+    token = encode_auth_token(user.id)
+
+    # Return the token and the user_id of the logged in user
+    return make_response(jsonify({"user_id": user.id, "token": token}), 201)
+
 ```
 
 ## Secure routes using the `@token_required` decorator
@@ -267,27 +300,30 @@ Add `@token_required` to one or more routes. For example, users must be register
 to 'update' a Region.
 
 Partial code shown below so that you can see the additional import `from paralympics.utilities import token_required`
-that is required, and where to place the `@token_required` decorator. Note that the order of the decorators matters,
-`@token_required` before the `@app.patch`.
+that is required, and where to place the `@token_required` decorator. Note that the order of the decorators matters.
 
 ```python
-from paralympics.utilities import token_required
+from paralympics.helpers import token_required
 
 
-@token_required
 @app.patch("/regions/<noc_code>")
+@token_required
 def region_update(noc_code):
 # Code removed
 ```
 
 ## Tests for the authentication
 
-For convenience, I added some additional fixtures to `conftest.py`:
+For convenience, I added some additional fixtures to `conftest.py` in the completed example. These are currently
+in `test_auth.py` to avoid confusion for students looking at this repo only for the results of last week's testing
+activities.
 
-- `new_user` which adds a User to the database so they can be used to test routes requiring login
+The fixtures are:
+
+- `new_user` which adds a User to the database
 - `random_user_json` which generates a random email and password in JSON format so that the route to create new users
   can be tested repeatedly
-- `login_token`
+- `login` to generate a token for a logged in user
 
 Open the `test_auth.py` and you will see a few tests have been added that test the login and register routes, and also
 test a route that is protected by login.
@@ -320,5 +356,5 @@ For the coursework you could consider:
   authorisation in another app (for example in coursework 2). This is a more sophisticated way to structure Flask rather
   than more sophisticated authentication.
 - investigate extending the authorisation process to allow for different roles (e.g. user, administrator).
-- investigate multi-factor authentication (possibly too much work as you'd need to handle emails or some other
+- investigate multi-factor authentication (possibly too much effort as you'd need to handle emails or some other
   authentication mechanism).

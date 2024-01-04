@@ -85,7 +85,7 @@ Add the following function in `paralympics\__init__.py`:
 
 ```text
 def configure_logging(app):
-    """ Configures Flask loggong to a file.
+    """ Configures Flask logging to a file.
 
     Logging level is set to DEBUG when testing which generates more detail.
     """
