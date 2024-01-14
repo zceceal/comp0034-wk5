@@ -98,6 +98,7 @@ def add_data_from_csv():
                 # row[0] is the first column, row[1] is the second column etc
                 # type0,year1,country2,host3,NOC4,start5,end6,duration7,disabilities_included8,countries9,events10,
                 # sports11,participants_m12,participants_f13,participants14,highlights15
+                # don't pass '' for int columns
                 e = Event(type=row[0],
                           year=row[1],
                           country=row[2],
@@ -107,12 +108,12 @@ def add_data_from_csv():
                           end=row[6],
                           duration=row[7],
                           disabilities_included=row[8],
-                          countries=row[9],
-                          events=row[10],
-                          sports=row[11],
-                          participants_m=row[12],
-                          participants_f=row[13],
-                          participants=row[14],
+                          countries=row[9] or None,
+                          events=row[10] or None,
+                          sports=row[11] or None,
+                          participants_m=row[12] or None,
+                          participants_f=row[13] or None,
+                          participants=row[14] or None,
                           highlights=row[15])
                 db.session.add(e)
             db.session.commit()

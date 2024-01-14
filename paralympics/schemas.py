@@ -18,13 +18,13 @@ class RegionSchema(ma.SQLAlchemySchema):
     notes = ma.auto_field()
 
 
+
 class EventSchema(ma.SQLAlchemyAutoSchema):
     """Marshmallow schema for the attributes of an event class. Inherits all the attributes from the Event class."""
 
     class Meta:
-        model = Event
-        include_fk = True
+        model = Event()
+        include_fk = True  # fails when the fk is string rather than int
         # load_instance = True creates an object from .load() instead of a dictionary
         load_instance = True
         sqla_session = db.session
-        include_relationships = True
