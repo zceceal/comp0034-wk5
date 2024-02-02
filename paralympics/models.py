@@ -2,6 +2,9 @@
 from sqlalchemy import Integer, String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import List
+
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from paralympics import db
 
 
@@ -44,6 +47,15 @@ class Event(db.Model):
 
 
 class User(db.Model):
-    id: Mapped[Integer] = mapped_column(db.Integer, primary_key=True)
-    email: Mapped[String] = mapped_column(db.String, unique=True, nullable=False)
-    password: Mapped[String] = mapped_column(db.String, unique=True, nullable=False)
+    id: Mapped[int] = mapped_column(db.Integer, primary_key=True)
+    email: Mapped[str] = mapped_column(db.String, unique=True, nullable=False)
+    password_hash: Mapped[str] = mapped_column(db.String, unique=True, nullable=False)
+
+    def __repr__(self):
+        return '<User {}>'.format(self.email)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
