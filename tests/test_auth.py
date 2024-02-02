@@ -9,7 +9,7 @@ from paralympics import db
 
 # Additional fixtures for authentication.
 # I have not put these in conftest.py to keep them separate from the solution to last week's activity.
-@pytest.fixture(scope='session')
+@pytest.fixture()
 def new_user(app):
     """Create a new user and add to the database.
 
@@ -36,7 +36,7 @@ def new_user(app):
             db.session.commit()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def random_user_json():
     """Generates a random email and password for testing and returns as JSON."""
     dummy = Faker()
@@ -47,7 +47,7 @@ def random_user_json():
     return {'email': dummy_email, 'password': dummy_password}
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def login(client, new_user, app):
     """Returns login response"""
     # Login

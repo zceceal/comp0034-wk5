@@ -8,7 +8,7 @@ from paralympics.models import Region
 from paralympics.schemas import RegionSchema
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def app():
     """Fixture that creates a test app.
 
@@ -41,7 +41,7 @@ def client(app):
     return app.test_client()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def new_region(app):
     """Create a new region and add to the database.
 

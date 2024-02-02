@@ -1,7 +1,4 @@
 import os
-from pathlib import Path
-
-import csv
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -67,3 +64,5 @@ def create_app(test_config=None):
 
     return app
 
+
+from paralympics.models import Region, Event
