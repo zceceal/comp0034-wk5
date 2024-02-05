@@ -182,7 +182,7 @@ def event_update(event_id):
     """
     # Find the event in the database
     existing_event = db.session.execute(
-        db.select(Event).filter_by(event_id=event_id)
+        db.select(Event).filter_by(id=event_id)
     ).scalar_one_or_none()
     # Get the updated details from the json sent in the HTTP patch request
     event_json = request.get_json()
