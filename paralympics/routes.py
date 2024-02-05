@@ -207,9 +207,7 @@ def region_update(noc_code):
         JSON message
     """
     # Find the region in the database
-    existing_region = db.session.execute(
-        db.select(Region).filter_by(NOC=noc_code)
-    ).scalar_one_or_none()
+    existing_region = db.session.execute(db.select(Region).filter_by(NOC=noc_code)).scalar_one_or_none()
     # Get the updated details from the json sent in the HTTP patch request
     region_json = request.get_json()
     # Use Marshmallow to update the existing records with the changes from the json
