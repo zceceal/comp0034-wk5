@@ -26,7 +26,7 @@ event happened with a certain degree of severity. The following functions can be
 - app.logger.warning(): Indication that something unexpected happened (such as “disk space low”), but the application is
   working as expected.
 - app.logger.error(): An error occurred in some part of the application.
-- app.logger.critical(): A critical error; the entire application might stop working.
+- app.logger.critical(): A critical error; the entire application might have stop working.
 
 You can add these to your code. For example, the app logger is used in the exception handling of the try/except
 in the route below:
@@ -54,82 +54,71 @@ View the log result in the terminal:
 127.0.0.1 - - [31/Dec/2023 15:35:56] "GET /regions/ZZA HTTP/1.1" 404 -
 ```
 
-Consider logging events such as info in the startup in `create_app()`:
+You can log events for information, for example in the startup in `create_app()`:
 
 ```python
+import logging
+
+
 def create_app():
+    logging.basicConfig(filename='paralympics-error.log', level=logging.DEBUG)
     app = Flask(__name__)
-    # app config omitted here
-    app.logger.setLevel("INFO")
 
-    db.init_app(app)
+    # app config, database, and other code omitted here
 
-    app.logger.debug(f"Current Environment: {os.getenv('ENVIRONMENT')}")
-    app.logger.debug(f"Using Database: {app.config.get('DATABASE')}")
+    app.logger.info(f"The app is starting...")
+
     return app
 ```
 
-Or actions taken by users, e.g. when they log in in the /login route:
+Or actions taken by users, e.g. when they log in the /login route:
 
 ```python
  if user.check_password(auth.get('password')):
     # Log when the user logged in
-    app.logger.info(f"{user.email} logged in at {datetime.utcnow()}")
+    app.logger.info(f"{user.email} logged in at {datetime.now(datetime.UTC)}")
 ```
 
-It is likely more useful to output the errors to a file.
+It is likely more useful to output the log records to a file.
 
 To do this, you need to configure Logging before the app starts.
 
-Add the following function in `paralympics\__init__.py`:
+Add the following the `create_app()` function in `paralympics\__init__.py`.
 
-```text
-def configure_logging(app):
-    """ Configures Flask logging to a file.
-
-    Logging level is set to DEBUG when testing which generates more detail.
-    """
-    logging.basicConfig(format='[%(asctime)s] %(levelname)s %(name)s: %(message)s')
-
-    if app.config['TESTING']:
-        logging.getLogger().setLevel(logging.DEBUG)
-        handler = logging.FileHandler('paralympics_tests.log')  # Log to a file
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-        handler = logging.FileHandler('paralympics.log')  # Log to a file
-    
-    app.logger.addHandler(handler)
-```
-
-Then create the logger in the `create_app` e.g.
+This is copied and adapted from
+the [Flask documentation](https://flask.palletsprojects.com/en/3.0.x/logging/#logging) with more detail on the
+dictConfig parameters in
+this [blog post](https://betterstack.com/community/guides/logging/how-to-start-logging-with-flask/):
 
 ```python
-def create_app(test_config=None):
-    app = Flask('paralympics', instance_relative_config=True)
-    app.config.from_mapping(
-        SECRET_KEY='l-tirPCf1S44mWAGoWqWlA',
-        SQLALCHEMY_DATABASE_URI="sqlite:///" + os.path.join(app.instance_path, 'paralympics.sqlite'),
-    )
-    if test_config is None:
-        app.config.from_pyfile('config.py', silent=True)
-    else:
-        app.config.from_mapping(test_config)
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
+from logging.config import dictConfig
 
-    # Configure logging 
-    configure_logging(app)
+    dictConfig({
+        'version': 1,
+        'formatters': {'default': {
+            'format': '[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+        }},
+        'handlers':
+            {'wsgi': {
+                'class': 'logging.StreamHandler',
+                'stream': 'ext://flask.logging.wsgi_errors_stream',
+                'formatter': 'default'
+            },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "filename": "paralympics_log.log",
+                    "formatter": "default",
+                },
+            },
+        "root": {"level": "DEBUG", "handlers": ["wsgi", "file"]},
+    })
 
-    # Log events to the logger
-    app.logger.debug(f"Using Database: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
+    # create and configure the app
+    app = Flask(__name__, instance_relative_config=True)
 
-    # ... code omitted ...
 ```
 
-Try running the tests, and then run the app and check for the two log files `paralympics.log`
-and `paralympics_test.log`.
+Try running the app and check for the log file `paralympics_log.log`.
 
 ## 2. Configure Flask to handle errors and respond in JSON format
 
@@ -342,7 +331,8 @@ def delete_region(noc_code):
 
 ## Over to you
 
-Error handling and logging has been added to the Region routes in the [completed code in week 5](https://github.com/nicholsons/comp0034-wk5-complete/blob/master/paralympics/routes.py).
+Error handling and logging has been added to the Region routes in
+the [completed code in week 5](https://github.com/nicholsons/comp0034-wk5-complete/blob/master/paralympics/routes.py).
 
 Use try / except to handle potential exceptions for all the Event API routes.
 
